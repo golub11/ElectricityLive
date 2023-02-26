@@ -10,12 +10,13 @@ namespace nigo.Controllers
     public class DayAheadPricesController : ControllerBase
     {
         private readonly String _token = "10eaf78f-5db9-4d0f-aba9-604485bc646e";
-        private readonly ILogger<DayAheadPricesController> _logger;
+        //private readonly ILogger<DayAheadPricesController> _logger;
 
-        public DayAheadPricesController(ILogger<DayAheadPricesController> logger)
+        public DayAheadPricesController()
         {
-            _logger = logger;
+           
         }
+
 
 
         [HttpPost(Name = "PostEnergyData")]
@@ -33,6 +34,7 @@ namespace nigo.Controllers
                 if (Constants.countryDomains.TryGetValue(energy.OutDomain, out string outDomain))
                 {
                     string webUrl = Constants.apiUrl + Constants.documentTypeParam + "=" + energy.DocumentType + "&" + Constants.inDomainParam + "=" + inDomain + "&" + Constants.outDomainParam + "=" + outDomain + "&" + Constants.periodStartParam + "=" + energy.PeriodStart + "&" + Constants.periodEndParam + "=" + energy.PeriodEnd + "&" + Constants.securityTokenParam + "=" + _token;
+                    
                     using HttpResponseMessage response = await client.GetAsync(webUrl);
                     response.EnsureSuccessStatusCode();
 
@@ -80,11 +82,52 @@ namespace nigo.Controllers
             return domainError;
         }
 
-        [HttpGet(Name = "GetEnergyData")]
-        public async Task<int> GetAsync()
+        [HttpGet(Name = "GetAllDayAheadEnergyData")]
+        public async Task<List<PublicationMarketDocument>> GetAsync()
         {
-            return 1;
-            
+            HttpClient client = new HttpClient();
+            List<PublicationMarketDocument> document = new List<PublicationMarketDocument>();
+
+            foreach (var country in Constants.countryDomains.Values){
+                Console.WriteLine(country);
+                
+                var date = DateTime.Today.AddDays(-3);
+                string dateDateAhead = date.Year.ToString() + DateTime.Today.AddDays(-3).ToString("MM") + DateTime.Today.AddDays(-3).ToString("dd") + "14" + "00";
+
+                string webUrl = Constants.apiUrl + Constants.documentTypeParam + "=" + Constants.dayAheadCode + "&" + Constants.inDomainParam + "=" + country + "&" + Constants.outDomainParam + "=" + country + "&" + Constants.periodStartParam + "=" + dateDateAhead + "&" + Constants.periodEndParam + "=" + dateDateAhead + "&" + Constants.securityTokenParam + "=" + _token;
+
+                Console.WriteLine(webUrl);
+                
+                using HttpResponseMessage response = await client.GetAsync(webUrl);
+                response.EnsureSuccessStatusCode();
+
+                string responseBody = await response.Content.ReadAsStringAsync();
+
+                XmlSerializer serializer = new XmlSerializer(typeof(PublicationMarketDocument));
+
+                PublicationMarketDocument d;
+
+                serializer.UnknownNode += new XmlNodeEventHandler(XmlHelper.serializerUnknownNode);
+                serializer.UnknownAttribute += new XmlAttributeEventHandler(XmlHelper.serializerUnknownAttribute);
+
+                try
+                {
+                    using (TextReader sr = new StringReader(responseBody))
+                    {
+                        d = (PublicationMarketDocument)serializer.Deserialize(sr);
+                    }
+                    document.Add(d);
+                    break;
+                }
+                catch (Exception e){
+                    Console.WriteLine($"Error for country code {country}");
+                    Console.WriteLine(e.Message);
+                }
+
+            }
+
+            return document;
+
         }
 
     }
