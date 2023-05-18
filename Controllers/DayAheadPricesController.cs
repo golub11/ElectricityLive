@@ -1,20 +1,22 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Distributed;
 using nigo.Models;
 using nigo.Utility;
 using System.Xml.Serialization;
 
+
 namespace nigo.Controllers
 {
     [ApiController]
-    [Route("[controller]")]
+    [Route("/api/[controller]")]
     public class DayAheadPricesController : ControllerBase
     {
         private readonly String _token = "10eaf78f-5db9-4d0f-aba9-604485bc646e";
         //private readonly ILogger<DayAheadPricesController> _logger;
-
+        //private readonly IDistributedCache _cache;
         public DayAheadPricesController()
         {
-           
+          //  _cache = cache;
         }
 
 
@@ -86,15 +88,19 @@ namespace nigo.Controllers
         public async Task<List<PublicationMarketDocument>> GetAsync()
         {
             HttpClient client = new HttpClient();
-            List<PublicationMarketDocument> document = new List<PublicationMarketDocument>();
+            int loadOnlyThisObject = 3;
 
-            foreach (var country in Constants.countryDomains.Values){
+            List<PublicationMarketDocument> document = new List<PublicationMarketDocument>();
+            
+            foreach (var country in Constants.countryDomains.Keys){
                 Console.WriteLine(country);
-                
+                string countryCode = Constants.countryDomains.GetValueOrDefault(country);
+                Console.WriteLine(countryCode);
+
                 var date = DateTime.Today.AddDays(-3);
                 string dateDateAhead = date.Year.ToString() + DateTime.Today.AddDays(-3).ToString("MM") + DateTime.Today.AddDays(-3).ToString("dd") + "14" + "00";
 
-                string webUrl = Constants.apiUrl + Constants.documentTypeParam + "=" + Constants.dayAheadCode + "&" + Constants.inDomainParam + "=" + country + "&" + Constants.outDomainParam + "=" + country + "&" + Constants.periodStartParam + "=" + dateDateAhead + "&" + Constants.periodEndParam + "=" + dateDateAhead + "&" + Constants.securityTokenParam + "=" + _token;
+                string webUrl = Constants.apiUrl + Constants.documentTypeParam + "=" + Constants.dayAheadCode + "&" + Constants.inDomainParam + "=" + countryCode + "&" + Constants.outDomainParam + "=" + countryCode + "&" + Constants.periodStartParam + "=" + dateDateAhead + "&" + Constants.periodEndParam + "=" + dateDateAhead + "&" + Constants.securityTokenParam + "=" + _token;
 
                 Console.WriteLine(webUrl);
                 
@@ -115,12 +121,14 @@ namespace nigo.Controllers
                     using (TextReader sr = new StringReader(responseBody))
                     {
                         d = (PublicationMarketDocument)serializer.Deserialize(sr);
+                        if (d is not null) d.Country = country;
                     }
                     document.Add(d);
-                    break;
+                    loadOnlyThisObject--;
+                    if (loadOnlyThisObject == 0) break;
                 }
                 catch (Exception e){
-                    Console.WriteLine($"Error for country code {country}");
+                    Console.WriteLine($"Error for country {country}");
                     Console.WriteLine(e.Message);
                 }
 

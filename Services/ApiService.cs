@@ -25,7 +25,8 @@ namespace nigo.Services
         public async Task FetchAndStoreDataAsync()
         {
             var data = await _controller.GetAsync();
-            _writer.WriteList(data);
+            //_writer.WriteList(data);
+            _writer.WriteCsv(data);
             
         }
 

@@ -12,6 +12,8 @@
         internal static string inDomainParam = "in_Domain";
         internal static string dayAheadCode= "A44";
 
+        internal static string csvFilePath = "dataTest.csv";
+
 
         // TODO italy, sweden, denmark and norway have regions, it is not singular value
         // it may happen that some countries do not have entries
