@@ -10,7 +10,7 @@
         internal static string outDomainParam = "out_Domain";
         internal static string securityTokenParam = "securityToken";
         internal static string inDomainParam = "in_Domain";
-        internal static string dayAheadCode= "A44";
+        
 
         internal static string csvFilePath = "dataTest.csv";
 
@@ -66,4 +66,9 @@
         };
 
     }
+}
+
+abstract class DocumentType {
+    internal static string priceDocument = "A44";
+
 }

@@ -12,6 +12,7 @@ namespace nigo.Controllers
     public class DayAheadPricesController : ControllerBase
     {
         private readonly String _token = "10eaf78f-5db9-4d0f-aba9-604485bc646e";
+        //TODO cache once enabled
         //private readonly ILogger<DayAheadPricesController> _logger;
         //private readonly IDistributedCache _cache;
         public DayAheadPricesController()
@@ -25,17 +26,20 @@ namespace nigo.Controllers
         public async Task<XmlDocument> PostAsync(EnergyData energy)
         {
             HttpClient client = new HttpClient();
-       /*     if(energy.PeriodStart > energy.PeriodEnd) // if EndDate is earlier then StartDate TODO check api response if this occurs
-            {
-                return null;
-            }*/
 
             if (Constants.countryDomains.TryGetValue(energy.InDomain,out string inDomain))
             {
 
                 if (Constants.countryDomains.TryGetValue(energy.OutDomain, out string outDomain))
                 {
-                    string webUrl = Constants.apiUrl + Constants.documentTypeParam + "=" + energy.DocumentType + "&" + Constants.inDomainParam + "=" + inDomain + "&" + Constants.outDomainParam + "=" + outDomain + "&" + Constants.periodStartParam + "=" + energy.PeriodStart + "&" + Constants.periodEndParam + "=" + energy.PeriodEnd + "&" + Constants.securityTokenParam + "=" + _token;
+                    string webUrl =
+                        Constants.apiUrl +
+                        Constants.documentTypeParam + "=" + DocumentType.priceDocument + "&" +
+                        Constants.inDomainParam + "=" + inDomain + "&" +
+                        Constants.outDomainParam + "=" + outDomain + "&" +
+                        Constants.periodStartParam + "=" + energy.PeriodStart + "&" +
+                        Constants.periodEndParam + "=" + energy.PeriodEnd + "&" +
+                        Constants.securityTokenParam + "=" + _token;
                     
                     using HttpResponseMessage response = await client.GetAsync(webUrl);
                     response.EnsureSuccessStatusCode();
@@ -46,8 +50,11 @@ namespace nigo.Controllers
 
                     PublicationMarketDocument document;
 
-                    serializer.UnknownNode += new XmlNodeEventHandler(XmlHelper.serializerUnknownNode);
-                    serializer.UnknownAttribute += new XmlAttributeEventHandler(XmlHelper.serializerUnknownAttribute);
+                    serializer.UnknownNode +=
+                        new XmlNodeEventHandler(XmlHelper.serializerUnknownNode);
+
+                    serializer.UnknownAttribute +=
+                        new XmlAttributeEventHandler(XmlHelper.serializerUnknownAttribute);
 
                     using (TextReader sr = new StringReader(responseBody))
                     {
@@ -88,7 +95,7 @@ namespace nigo.Controllers
         public async Task<List<PublicationMarketDocument>> GetAsync()
         {
             HttpClient client = new HttpClient();
-            int loadOnlyThisObject = 3;
+            int loadOnlyThisObject = 10;
 
             List<PublicationMarketDocument> document = new List<PublicationMarketDocument>();
             
@@ -98,9 +105,22 @@ namespace nigo.Controllers
                 Console.WriteLine(countryCode);
 
                 var date = DateTime.Today.AddDays(-3);
-                string dateDateAhead = date.Year.ToString() + DateTime.Today.AddDays(-3).ToString("MM") + DateTime.Today.AddDays(-3).ToString("dd") + "14" + "00";
 
-                string webUrl = Constants.apiUrl + Constants.documentTypeParam + "=" + Constants.dayAheadCode + "&" + Constants.inDomainParam + "=" + countryCode + "&" + Constants.outDomainParam + "=" + countryCode + "&" + Constants.periodStartParam + "=" + dateDateAhead + "&" + Constants.periodEndParam + "=" + dateDateAhead + "&" + Constants.securityTokenParam + "=" + _token;
+                string dateDateAhead =
+                    date.Year.ToString() +
+                    DateTime.Today.AddDays(-3).ToString("MM") +
+                    DateTime.Today.AddDays(-3).ToString("dd") +
+                    "14" +
+                    "00";
+
+                string webUrl =
+                    Constants.apiUrl +
+                    Constants.documentTypeParam + "=" + DocumentType.priceDocument + "&" +
+                    Constants.inDomainParam + "=" + countryCode + "&" +
+                    Constants.outDomainParam + "=" + countryCode + "&" +
+                    Constants.periodStartParam + "=" + dateDateAhead + "&" +
+                    Constants.periodEndParam + "=" + dateDateAhead + "&" +
+                    Constants.securityTokenParam + "=" + _token;
 
                 Console.WriteLine(webUrl);
                 
@@ -113,8 +133,11 @@ namespace nigo.Controllers
 
                 PublicationMarketDocument d;
 
-                serializer.UnknownNode += new XmlNodeEventHandler(XmlHelper.serializerUnknownNode);
-                serializer.UnknownAttribute += new XmlAttributeEventHandler(XmlHelper.serializerUnknownAttribute);
+                serializer.UnknownNode +=
+                    new XmlNodeEventHandler(XmlHelper.serializerUnknownNode);
+
+                serializer.UnknownAttribute +=
+                    new XmlAttributeEventHandler(XmlHelper.serializerUnknownAttribute);
 
                 try
                 {
