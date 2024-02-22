@@ -1,4 +1,5 @@
 ﻿using System.Xml.Serialization;
+using nigo.Models.Xml;
 
 namespace nigo.Models
 {
@@ -12,5 +13,11 @@ namespace nigo.Models
 
 		[XmlElement(ElementName = "Point")]
 		public List<Point> Point { get; set; }
+
+		[XmlElement(ElementName = "timeInterval")]
+		public XmlTimeIterval xmlTimeIterval;
+
+
+
 	}
 }

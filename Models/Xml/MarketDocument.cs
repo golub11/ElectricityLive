@@ -16,6 +16,7 @@ namespace nigo.Models
 		[XmlElement(ElementName = "TimeSeries")]
 		public List<TimeSeries> TimeSeries { get; set; }
 
+
         [XmlAttribute(AttributeName = "xmlns")]
         public string Xmlns { get; set; }
 

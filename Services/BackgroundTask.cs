@@ -1,4 +1,7 @@
-﻿namespace nigo.Services
+﻿using System;
+using Microsoft.Extensions.Configuration;
+
+namespace nigo.Services
 {
     public class BackgroundTask : BackgroundService
     {
@@ -13,8 +16,15 @@
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                await _apiService.FetchAndStoreDataAsync();
-                await Task.Delay(TimeSpan.FromDays(1), stoppingToken);
+                try
+                { 
+                    await _apiService.FetchAndStoreDataAsync();
+                }
+                catch(Exception e)
+                {
+                    Console.WriteLine("ERROR: in background service. " + e.Message);
+                }
+                await Task.Delay(TimeSpan.FromHours(4), stoppingToken);
             }
         }
     }

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h2>CORS Test</h2>
+    <button type="button" onclick="testCORS()">Test CORS</button>
+    <script>
+        function testCORS() {
+            fetch('https://localhost:7090/api/DayAheadPrices/all')
+                .then(response => response.json())
+                .then(data => console.log(data))
+                .catch(error => console.error('Error:', error));
+        }
+    </script>
+</body>
+</html>

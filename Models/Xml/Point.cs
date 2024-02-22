@@ -9,6 +9,8 @@ namespace nigo.Models
 		[XmlElement(ElementName = "position")]
 		public int Position { get; set; }
 
+		public DateTime? Date { get; set; }
+
 		[XmlElement(ElementName = "price.amount")]
 		public double PriceAmount { get; set; }
 	}

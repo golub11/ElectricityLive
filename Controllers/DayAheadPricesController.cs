@@ -1,183 +1,163 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Caching.Memory;
 using nigo.Models;
+using nigo.Services;
 using nigo.Utility;
 using System.Xml.Serialization;
-
+using Microsoft.AspNetCore.Cors;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Configuration;
 
 namespace nigo.Controllers
 {
+    [Authorize]
+    //[EnableCors("AllowGoluxSoftWebApp")] //TODO
     [ApiController]
     [Route("/api/[controller]")]
     public class DayAheadPricesController : ControllerBase
     {
-        private readonly String _token = "10eaf78f-5db9-4d0f-aba9-604485bc646e";
+        
+        private string _token;
+        private readonly IMemoryCache _cache;
+        private DayAheadService dayAheadService;
+        private readonly IConfiguration _configuration;
+
+        public DayAheadPricesController(IMemoryCache cache, IConfiguration configuration)
+        {
+            _cache = cache;
+            dayAheadService = new DayAheadService();
+            _configuration = configuration;
+            _token = _configuration.GetSection("ExternalTokenAPI").Value;
+;
+        }
+        
+        
         //TODO cache once enabled
         //private readonly ILogger<DayAheadPricesController> _logger;
-        //private readonly IDistributedCache _cache;
-        public DayAheadPricesController()
-        {
-          //  _cache = cache;
-        }
 
 
-
-        [HttpPost(Name = "PostEnergyData")]
-        public async Task<XmlDocument> PostAsync(EnergyData energy)
+        [HttpPost("country")]
+        public async Task<IActionResult> PostAsync(EnergyData energy)
         {
             HttpClient client = new HttpClient();
 
-            if (Constants.countryDomains.TryGetValue(energy.InDomain,out string inDomain))
+            if (energy == null)
             {
-
-                if (Constants.countryDomains.TryGetValue(energy.OutDomain, out string outDomain))
-                {
-                    string webUrl =
-                        Constants.apiUrl +
-                        Constants.documentTypeParam + "=" + DocumentType.priceDocument + "&" +
-                        Constants.inDomainParam + "=" + inDomain + "&" +
-                        Constants.outDomainParam + "=" + outDomain + "&" +
-                        Constants.periodStartParam + "=" + energy.PeriodStart + "&" +
-                        Constants.periodEndParam + "=" + energy.PeriodEnd + "&" +
-                        Constants.securityTokenParam + "=" + _token;
-                    
-                    using HttpResponseMessage response = await client.GetAsync(webUrl);
-                    response.EnsureSuccessStatusCode();
-
-                    string responseBody = await response.Content.ReadAsStringAsync();
-
-                    XmlSerializer serializer = new XmlSerializer(typeof(PublicationMarketDocument));
-
-                    PublicationMarketDocument document;
-
-                    serializer.UnknownNode +=
-                        new XmlNodeEventHandler(XmlHelper.serializerUnknownNode);
-
-                    serializer.UnknownAttribute +=
-                        new XmlAttributeEventHandler(XmlHelper.serializerUnknownAttribute);
-
-                    using (TextReader sr = new StringReader(responseBody))
-                    {
-                        document = (PublicationMarketDocument)serializer.Deserialize(sr);
-                    }
-
-                    return document;
-                }
-
-                ErrorTypeDocument outDomainError = generateDomainErrorDocument(energy.OutDomain);
-                return outDomainError;
-
+                return BadRequest("Request data is missing.");
             }
-            else
+
+            if (!ModelState.IsValid)
             {
-                ErrorTypeDocument inDomainError = generateDomainErrorDocument(energy.InDomain);
-                return inDomainError;
+                return BadRequest("Invalid request data.");
             }
-            
-        }
 
-        private static ErrorTypeDocument generateDomainErrorDocument(string domain)
-        {
-            Console.WriteLine($"There is error using {domain} Country value");
-            ErrorTypeDocument domainError = new ErrorTypeDocument
+            TimeInterval timeInterval = TimeInterval.FromString(
+                energy.PeriodStart,
+                energy.PeriodEnd
+            );
+
+            string webUrl = dayAheadService.BuildAPIUrl(
+                        energy.InDomain,
+                        energy.OutDomain,
+                        timeInterval,
+                        _token
+                        )!;
+
+           
+            if (webUrl is not null)
             {
-                Error = "Bad request",
-                Message = $"There is error using {domain} Country value"
-            };
-
-            XmlSerializer errorSerializer = new XmlSerializer(typeof(ErrorTypeDocument));
-            StringWriter sw = new StringWriter();
-            errorSerializer.Serialize(sw, domainError);
-            return domainError;
-        }
-
-        [HttpGet(Name = "GetAllDayAheadEnergyData")]
-        public async Task<List<PublicationMarketDocument>> GetAsync()
-        {
-            HttpClient client = new HttpClient();
-            int loadOnlyThisObject = 10;
-
-            List<PublicationMarketDocument> document = new List<PublicationMarketDocument>();
-            
-            foreach (var country in Constants.countryDomains.Keys){
-                Console.WriteLine(country);
-                string countryCode = Constants.countryDomains.GetValueOrDefault(country);
-                Console.WriteLine(countryCode);
-
-                var date = DateTime.Today.AddDays(-3);
-
-                string dateDateAhead =
-                    date.Year.ToString() +
-                    DateTime.Today.AddDays(-3).ToString("MM") +
-                    DateTime.Today.AddDays(-3).ToString("dd") +
-                    "14" +
-                    "00";
-
-                string webUrl =
-                    Constants.apiUrl +
-                    Constants.documentTypeParam + "=" + DocumentType.priceDocument + "&" +
-                    Constants.inDomainParam + "=" + countryCode + "&" +
-                    Constants.outDomainParam + "=" + countryCode + "&" +
-                    Constants.periodStartParam + "=" + dateDateAhead + "&" +
-                    Constants.periodEndParam + "=" + dateDateAhead + "&" +
-                    Constants.securityTokenParam + "=" + _token;
-
-                Console.WriteLine(webUrl);
-                
                 using HttpResponseMessage response = await client.GetAsync(webUrl);
                 response.EnsureSuccessStatusCode();
 
                 string responseBody = await response.Content.ReadAsStringAsync();
 
-                XmlSerializer serializer = new XmlSerializer(typeof(PublicationMarketDocument));
 
-                PublicationMarketDocument d;
-
-                serializer.UnknownNode +=
-                    new XmlNodeEventHandler(XmlHelper.serializerUnknownNode);
-
-                serializer.UnknownAttribute +=
-                    new XmlAttributeEventHandler(XmlHelper.serializerUnknownAttribute);
-
-                try
+                PublicationMarketDocument document = dayAheadService.DeserializeDocument(responseBody);
+                if (document != null)
                 {
-                    using (TextReader sr = new StringReader(responseBody))
+                    document.Country = energy.InDomain;
+                    List<PublicationMarketDocument> documents = new List<PublicationMarketDocument>
                     {
-                        d = (PublicationMarketDocument)serializer.Deserialize(sr);
-                        if (d is not null) d.Country = country;
-                    }
-                    document.Add(d);
-                    loadOnlyThisObject--;
-                    if (loadOnlyThisObject == 0) break;
-                }
-                catch (Exception e){
-                    Console.WriteLine($"Error for country {country}");
-                    Console.WriteLine(e.Message);
-                }
+                        document
+                    };
 
+
+                    List<DayAhead> electricityForCountry = dayAheadService.CalculateElectricity(
+                        documents
+                    );
+                    return Ok(electricityForCountry);
+
+                }
+                
+                Console.WriteLine($"Error for country {energy.InDomain}");
             }
 
-            return document;
+            return NoContent();
+        }
+
+        
+        [HttpGet("all")]
+        public async Task<IActionResult> GetAsync()
+        {   
+
+            if (!_cache.TryGetValue("dayAheadAllCountries", out var cachedData))
+            {
+                var data = await FetchDataFromExternalAPI();
+                _cache.Set("dayAheadAllCountries", data, TimeSpan.FromHours(12));
+
+                cachedData = data;
+            }
+            return Ok(cachedData);
+        
 
         }
 
-    }
-}
-
-
-public abstract class XmlHelper
-{
-    static public void serializerUnknownNode
-    (object sender, XmlNodeEventArgs e)
+        private async Task<List<DayAhead>> FetchDataFromExternalAPI()
         {
-            Console.WriteLine("Unknown Node:" + e.Name + "\t" + e.Text);
-        }
+            using HttpClient client = new HttpClient();
+            List<PublicationMarketDocument> documents = new List<PublicationMarketDocument>();
 
-    static public void serializerUnknownAttribute
-    (object sender, XmlAttributeEventArgs e)
-    {
-        System.Xml.XmlAttribute attr = e.Attr;
-        Console.WriteLine("Unknown attribute " +
-        attr.Name + "='" + attr.Value + "'");
+            TimeInterval timeInterval = TimeInterval.FromString(
+                dayAheadService.GetTodayDateString()!,
+                dayAheadService.GetTomorrowDateString()!
+                );
+
+            string webUrl;
+
+            foreach (var country in Constants.countryDomains.Keys)
+            {
+
+
+                webUrl = dayAheadService.BuildAPIUrl(
+                    country,
+                    country,
+                    timeInterval,
+                    _token
+                    )!;
+
+                HttpResponseMessage response = await client.GetAsync(webUrl);
+                response.EnsureSuccessStatusCode();
+
+                string responseBody = await response.Content.ReadAsStringAsync();
+
+                PublicationMarketDocument document = dayAheadService.DeserializeDocument(responseBody);
+                if (document != null)
+                {
+                    document.Country = country;
+                    documents.Add(document);
+                }
+                else
+                {
+                    Console.WriteLine($"Error for country {country}");
+                }
+            }
+
+            List<DayAhead> electricityForEurope = dayAheadService.CalculateElectricity(documents);
+            return electricityForEurope;
+        }
     }
 }
+
+
