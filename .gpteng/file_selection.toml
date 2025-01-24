@@ -1,0 +1,40 @@
+# Remove '#' to select a file or turn off linting.
+
+# Linting with BLACK (Python) enhances code suggestions from LLMs. To disable linting, uncomment the relevant option in the linting settings.
+
+# gpt-engineer can only read selected files. Including irrelevant files will degrade performance, cost additional tokens and potentially overflow token limit.
+
+[linting]
+# "linting" = "off"
+
+[files]
+# "nigo.sln" = "selected"
+# "nigo.csproj" = "selected"
+# "appsettings.json" = "selected"
+# "data.json" = "selected"
+# "README.md" = "selected"
+# "appsettings.Development.json" = "selected"
+# "LICENSE.txt" = "selected"
+# "Program.cs" = "selected"
+# "front-end-cors-test/index.html" = "selected"
+# "Models/PvParams.cs" = "selected"
+# "Models/EnergyData.cs" = "selected"
+# "Models/PvResponse.cs" = "selected"
+# "Models/DayAhead.cs" = "selected"
+# "Models/TimeInterval.cs" = "selected"
+# "Models/Xml/XmlTimeIterval.cs" = "selected"
+# "Models/Xml/MarketDocument.cs" = "selected"
+# "Models/Xml/ErrorTypeDocument.cs" = "selected"
+# "Models/Xml/XmlTypeDocument.cs" = "selected"
+# "Models/Xml/TimeSeries.cs" = "selected"
+# "Models/Xml/Point.cs" = "selected"
+# "Models/Xml/Period.cs" = "selected"
+# "Models/Xml/CsvModel.cs" = "selected"
+# "Properties/launchSettings.json" = "selected"
+# "Controllers/EnergyData.cs" = "selected"
+# "Controllers/PvController.cs" = "selected"
+# "Controllers/DayAheadPricesController.cs" = "selected"
+# "Services/XmlHelper.cs" = "selected"
+# "Services/ApiKeyAuthenticationHandler.cs" = "selected"
+# "Services/DayAheadService.cs" = "selected"
+# "Utility/Constants.cs" = "selected"

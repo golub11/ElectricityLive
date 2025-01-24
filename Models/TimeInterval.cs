@@ -38,17 +38,5 @@
             return timeInterval;
         }
 
-        public string getFromDateStringFormat()
-        {
-            return from.ToString("yyyy-MM-dd");
-
-        }
-
-
-        public string getToDateStringFormat()
-        {
-            return to.ToString("yyyy-MM-dd");
-
-        }
     }
 }

@@ -1,4 +1,6 @@
-﻿namespace nigo.Controllers
+﻿using System.Text.Json.Serialization;
+
+namespace nigo.Controllers
 {
     public class EnergyData
     {
@@ -9,5 +11,29 @@
 
 
     }
+    public class CountryRequestModel
+    {
+        public string country { get; set; }
+        public string date_start { get; set; }
+        public string date_end { get; set; }
+
+    }
+
+    public class TimeForAPI
+    {
+        public string date_start { get; set; }
+        public string date_end { get; set; }
+
+
+    }
+
+    public class BotMessage
+    {
+        public string session_id { get; set; }
+        public string input { get; set; }
+
+
+    }
+
 
 }

@@ -7,8 +7,8 @@ using Newtonsoft.Json.Linq;
 
 namespace nigo.Controllers
 {
-    [Authorize]
-    //[EnableCors("AllowGoluxSoftWebApp")] //TODO
+    //[Authorize]
+    //[EnableCors("AllowGoluxSoftWebApp")] 
     [Route("api/[controller]")]
     [ApiController]
     public class PvWattsController : ControllerBase
@@ -17,7 +17,7 @@ namespace nigo.Controllers
 
         public PvWattsController(IHttpClientFactory httpClientFactory)
         {
-            _httpClient = httpClientFactory.CreateClient();
+            _httpClient = new HttpClient();
         }
 
         [HttpPost("calculate")]

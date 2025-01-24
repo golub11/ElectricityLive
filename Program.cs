@@ -1,7 +1,3 @@
-using nigo.Services;
-using nigo.Utility;
-using StackExchange.Redis;
-using Microsoft.Extensions.DependencyInjection;
 using nigo.Controllers;
 using Microsoft.AspNetCore.Authentication;
 
@@ -10,7 +6,6 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddMemoryCache();
 
-builder.Services.AddCors();// TODO
 builder.Services.AddControllers();
 builder.Services.AddSwaggerGen();
 builder.Services.AddEndpointsApiExplorer();
@@ -27,7 +22,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 app.UseRouting();
 app.UseCors(builder => builder
@@ -35,7 +30,7 @@ app.UseCors(builder => builder
                  .AllowAnyMethod()
                  .AllowAnyHeader());
 //app.UseCors("AllowGoluxSoftWebApp"); //TODO
-//app.UseAuthentication();
+//app.UseAuthentication(); //TODO
 app.UseAuthorization();
 
 app.MapControllers();
@@ -45,6 +40,7 @@ app.Run();
 
 static void addMyServices(WebApplicationBuilder builder)
 {
+    // TODO - start
     //var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Value.Split(',');
     //builder.Services.AddCors(options =>
     //{
@@ -57,15 +53,13 @@ static void addMyServices(WebApplicationBuilder builder)
     //        });
     //});
 
-    builder.Services.AddAuthentication(options =>
-     {
-         options.DefaultAuthenticateScheme = "ApiKeyScheme";
-         options.DefaultChallengeScheme = "ApiKeyScheme";
-     }).AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKeyScheme", null);
-
+    //builder.Services.AddAuthentication(options =>
+    //{
+    //    options.DefaultAuthenticateScheme = "ApiKeyScheme";
+    //    options.DefaultChallengeScheme = "ApiKeyScheme";
+    //}).AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKeyScheme", null);
+    // TODO end
     builder.Services.AddTransient<DayAheadPricesController>();
-    builder.Services.AddTransient<ApiService>();
-    builder.Services.AddHostedService<BackgroundTask>();
     builder.Services.Configure<HostOptions>(options =>
     {
         options.ShutdownTimeout = TimeSpan.FromSeconds(30);

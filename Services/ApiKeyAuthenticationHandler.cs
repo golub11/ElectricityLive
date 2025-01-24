@@ -6,14 +6,18 @@ using Microsoft.Extensions.Options;
 public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
     private const string ApiKeyHeaderName = "X_API_KEY";
+   
+    private string apiKey;
 
     public ApiKeyAuthenticationHandler(
         IOptionsMonitor<AuthenticationSchemeOptions> options,
         ILoggerFactory logger,
         UrlEncoder encoder,
-        ISystemClock clock)
+        ISystemClock clock,
+        IConfiguration configuration)
         : base(options, logger, encoder, clock)
     {
+        apiKey = configuration.GetSection(ApiKeyHeaderName).Value;
     }
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
@@ -28,9 +32,7 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationS
             return AuthenticateResult.Fail("API Key was not provided.");
         }
 
-        //string apiKey = Environment.GetEnvironmentVariable("X_API_KEY");
-        string apiKey = "F3tdRvZbApkGV4TAqgwL6g30iFZlJf"; //TODO
-
+            
         if (!potentialApiKey.Equals(apiKey))
         {
             return AuthenticateResult.Fail("Invalid API Key provided.");

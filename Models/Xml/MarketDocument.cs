@@ -2,10 +2,12 @@
 
 namespace nigo.Models
 {
-	[XmlRoot(ElementName = "Publication_MarketDocument", Namespace = "urn:iec62325.351:tc57wg16:451-3:publicationdocument:7:0")]
+	[XmlRoot(ElementName = "Publication_MarketDocument")]
 	public class PublicationMarketDocument : XmlDocument
 	{
-		public string Country { get; set; }
+        public const string BaseNamespace = "urn:iec62325.351:tc57wg16:451-3:publicationdocument:";
+
+        public string Country { get; set; }
 
 		[XmlElement(ElementName = "revisionNumber")]
 		public int RevisionNumber { get; set; }
@@ -26,7 +28,7 @@ namespace nigo.Models
 			//foreach (TimeSeries t in TimeSeries) { 
 				foreach (Point p in TimeSeries[0].Period.Point)
 				{
-					avgPriceAmount += p.PriceAmount;
+					avgPriceAmount += p.Price;
 				}
 			//}
 			return avgPriceAmount / TimeSeries[0].Period.Point.Count;

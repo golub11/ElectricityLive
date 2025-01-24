@@ -12,6 +12,6 @@ namespace nigo.Models
 		public DateTime? Date { get; set; }
 
 		[XmlElement(ElementName = "price.amount")]
-		public double PriceAmount { get; set; }
+		public double Price{ get; set; }
 	}
 }
