@@ -13,6 +13,9 @@ namespace nigo.Controllers
     [Route("/api/[controller]")]
     public class DayAheadPricesController : ControllerBase
     {
+        private const int MAX_RETRY_ATTEMPTS = 3;
+        private const int MAX_ITERATIONS = 100;
+    
         private readonly string _authToken;
         private readonly IMemoryCache _cache;
         private readonly DayAheadService _dayAheadService;
@@ -63,16 +66,23 @@ namespace nigo.Controllers
         }
 
         [HttpPost("getExternalDataForDateRange")]
-        public async Task<IActionResult> GetExternalPriceData(TimeForAPI timeRange)
+        public async Task<IActionResult> GetExternalPriceData(TimeForAPI timeRange, CancellationToken cancellationToken)
         {
-            if (timeRange == null)
-            {
-                return BadRequest("Request data is missing.");
-            }
+        try 
+                {
+                    if (timeRange == null)
+                    {
+                        return BadRequest("Request data is missing.");
+                    }
 
-            var timeInterval = TimeInterval.FromString(timeRange.date_start, timeRange.date_end);
-            var priceData = await FetchDayAheadFromExternalAPI(timeInterval);
-            return Ok(priceData);
+                    var timeInterval = TimeInterval.FromString(timeRange.date_start, timeRange.date_end);
+                    var priceData = await FetchDayAheadFromExternalAPI(timeInterval, cancellationToken);
+                    return Ok(priceData);
+                }
+                catch (OperationCanceledException)
+                {
+                    return StatusCode(408, "Request timeout");
+                }
         }
         [HttpGet]
         public IActionResult Get()
@@ -109,7 +119,7 @@ namespace nigo.Controllers
             return priceData?.Count > 0 ? Ok(priceData) : NoContent();
         }
 
-        private async Task<List<DayAhead>> FetchDayAheadFromExternalAPI(TimeInterval timeInterval)
+        private async Task<List<DayAhead>> FetchDayAheadFromExternalAPI(TimeInterval timeInterval, CancellationToken cancellationToken)
         {
             var documents = new List<PublicationMarketDocument>();
             
@@ -117,38 +127,42 @@ namespace nigo.Controllers
             {
                 if (Constants.countryDomains[country] is string[] domainList)
                 {
-                    await ProcessMultipleRegions(country, domainList, timeInterval, documents);
+                    await ProcessMultipleRegions(country, domainList, timeInterval, documents,cancellationToken);
                 }
                 else
                 {
-                    await ProcessSingleRegion(country, Constants.countryDomains[country].ToString(), timeInterval, documents);
+                    await ProcessSingleRegion(country, Constants.countryDomains[country].ToString(), timeInterval, documents,cancellationToken);
                 }
             }
 
             return _dayAheadService.CalculateElectricity(documents);
         }
 
-        private async Task ProcessMultipleRegions(string country, string[] domains, TimeInterval originalInterval, List<PublicationMarketDocument> documents)
+        private async Task ProcessMultipleRegions(string country, string[] domains, TimeInterval originalInterval, List<PublicationMarketDocument> documents, CancellationToken cancellationToken)
         {
             List<PublicationMarketDocument> countryDocuments = new List<PublicationMarketDocument>();
+        int iterations = 0;
 
-            foreach (var domain in domains)
+        foreach (var domain in domains)
+        {
+            iterations = 0;
+            var domainDocument = new PublicationMarketDocument
             {
-                var domainDocument = new PublicationMarketDocument
-                {
-                    Country = country,
-                    TimeSeries = new List<TimeSeries>(),
-                    RevisionNumber = 1,
-                    Type = Constants.documentTypeParam
-                };
+                Country = country,
+                TimeSeries = new List<TimeSeries>(),
+                RevisionNumber = 1,
+                Type = Constants.documentTypeParam
+            };
 
-                TimeInterval currentInterval = originalInterval;
+            TimeInterval currentInterval = originalInterval;
 
-                while (currentInterval.from < currentInterval.to)
-                {
-                    var document = await FetchDocument(domain, currentInterval);
-                    if (document == null)
-                        break;
+            while (currentInterval.from < currentInterval.to && iterations++ < MAX_ITERATIONS)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                
+                var document = await FetchDocumentWithRetry(domain, currentInterval, cancellationToken);
+                if (document == null)
+                    break;
 
                     if (document.TimeSeries != null && document.TimeSeries.Any())
                     {
@@ -169,7 +183,10 @@ namespace nigo.Controllers
                 {
                     countryDocuments.Add(domainDocument);
                 }
-
+            if (iterations >= MAX_ITERATIONS)
+            {
+                throw new TimeoutException($"Maximum iterations reached for domain {domain}");
+            }
 
             }
 
@@ -181,7 +198,7 @@ namespace nigo.Controllers
             //}
         }
 
-        private async Task ProcessSingleRegion(string country, string domain, TimeInterval originalInterval, List<PublicationMarketDocument> documents)
+        private async Task ProcessSingleRegion(string country, string domain, TimeInterval originalInterval, List<PublicationMarketDocument> documents, CancellationToken cancellationToken)
         {
 
             TimeInterval currentInterval = originalInterval;
@@ -194,7 +211,7 @@ namespace nigo.Controllers
             };
             while (currentInterval.from < currentInterval.to)
             {
-                var document = await FetchDocument(domain, currentInterval);
+                var document = await FetchDocument(domain, currentInterval, cancellationToken);
                 if (document == null)
                     break;
 
@@ -219,29 +236,38 @@ namespace nigo.Controllers
             }
         }
 
-        private async Task<PublicationMarketDocument> FetchDocument(string domain, TimeInterval timeInterval)
+            private async Task<PublicationMarketDocument> FetchDocumentWithRetry(string domain, 
+        TimeInterval timeInterval, CancellationToken cancellationToken)
+    {
+        for (int attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++)
         {
             try
             {
-                var url = _dayAheadService.BuildAPIUrl(domain, domain, timeInterval, _authToken);
-                var response = await _httpClient.GetAsync(url);
-                response.EnsureSuccessStatusCode();
-                var content = await response.Content.ReadAsStringAsync();
-                return _dayAheadService.DeserializeDocument(content, domain);
+                return await FetchDocument(domain, timeInterval, cancellationToken);
             }
-            catch (TaskCanceledException)
+            catch (Exception ex) when (attempt < MAX_RETRY_ATTEMPTS - 1)
             {
-                Console.WriteLine($"Request timed out for domain: {domain}");
-                return null;
+                await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt)), cancellationToken);
             }
-            catch (Exception e)
-            {
-                Console.WriteLine($"{domain}, {timeInterval.from.ToString()} - {timeInterval.to.ToString()}");
-                Console.WriteLine(e.ToString());
-                return null;
-            }
-            
         }
+        return null;
+    }
+     private async Task<PublicationMarketDocument> FetchDocument(string domain, 
+        TimeInterval timeInterval, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var url = _dayAheadService.BuildAPIUrl(domain, domain, timeInterval, _authToken);
+            var response = await _httpClient.GetAsync(url, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var content = await response.Content.ReadAsStringAsync(cancellationToken);
+            return _dayAheadService.DeserializeDocument(content, domain);
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Error fetching document for {domain}", ex);
+        }
+    }
 
         private async Task<HttpResponseMessage> SendFastApiRequest<T>(string url, T data)
         {
