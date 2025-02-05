@@ -37,6 +37,26 @@ namespace nigo.Models
 		[XmlText]
 		public string Text { get; set; }
 
+        public DateTime GetMaxDate()
+        {
+            if (TimeSeries == null || TimeSeries.Count == 0)
+                return DateTime.MinValue;
 
-	}
+            DateTime maxDate = DateTime.MinValue;
+            foreach (var timeSeries in TimeSeries)
+            {
+                if (timeSeries.Period?.Point == null)
+                    continue;
+
+                foreach (var point in timeSeries.Period.Point)
+                {
+                    if (point.Date > maxDate)
+                        maxDate = (DateTime)point.Date;
+                }
+            }
+
+            return maxDate;
+        }
+
+    }
 }

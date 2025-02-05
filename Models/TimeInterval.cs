@@ -38,5 +38,15 @@
             return timeInterval;
         }
 
+        public bool Contains(DateTime date)
+        {
+            return date >= from && date <= to;
+        }
+
+        public bool IsCovered(DateTime upperLimit)
+        {
+            return upperLimit >= to;
+        }
+
     }
 }

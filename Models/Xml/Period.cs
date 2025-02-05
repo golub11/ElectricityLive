@@ -15,7 +15,7 @@ namespace nigo.Models
 		public List<Point> Point { get; set; }
 
 		[XmlElement(ElementName = "timeInterval")]
-		public XmlTimeIterval xmlTimeIterval;
+		public XmlTimeIterval xmlTimeIterval ;
 
 
 

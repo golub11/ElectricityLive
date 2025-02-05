@@ -10,6 +10,8 @@ namespace nigo.Services
 	public class DayAheadService
 	{
         private const string HOURLY_FREQ = "PT60M";
+        private const string MIN_15_FREQ = "PT15M";
+
         public DayAheadService()
         { }
         public string FormatDateToUTCMidnightForAPI(DateTime date)
@@ -21,6 +23,7 @@ namespace nigo.Services
         public string? BuildAPIUrl(
             string inDomain, string outDomain, TimeInterval timeInterval, string _token)
         {
+                    
                     string dateFromAPIFormat = FormatDateToUTCMidnightForAPI(timeInterval.from);
                     string dateToAPIFormat = FormatDateToUTCMidnightForAPI(timeInterval.to);
                     return
@@ -34,35 +37,17 @@ namespace nigo.Services
                     
 
         }
-
-        /*
-         * public PublicationMarketDocument DeserializeDocument(string xmlContent)
+        private string GetCountryFromDomain(string domain)
         {
-            XmlSerializer serializer = new XmlSerializer(typeof(PublicationMarketDocument));
-            PublicationMarketDocument? document;
-
-            serializer.UnknownNode += new XmlNodeEventHandler(XmlHelper.serializerUnknownNode!);
-            serializer.UnknownAttribute += new XmlAttributeEventHandler(XmlHelper.serializerUnknownAttribute!);
-
-            using TextReader sr = new StringReader(xmlContent);
-            try
-            {
-                document = serializer.Deserialize(sr) as PublicationMarketDocument;
-            }
-            catch (Exception e)
-            {
-                //Console.WriteLine(e.Message);
-                document = null;
-            }
-
-            return document;
-        }*/
-        public PublicationMarketDocument DeserializeDocument(string xmlContent)
+            return Constants.countryDomains.FirstOrDefault(x =>
+                x.Value is string ? x.Value == domain :
+                x.Value is string[] && ((string[])x.Value).Contains(domain)
+            ).Key;
+        }
+        public PublicationMarketDocument DeserializeDocument(string xmlContent, string domain)
         {
-            // Extract the namespace version from the XML content
             string namespaceVersion = ExtractNamespaceVersion(xmlContent);
 
-            // Create XmlAttributeOverrides to override the namespace
             var overrides = new XmlAttributeOverrides();
             var attrs = new XmlAttributes();
             attrs.XmlRoot = new XmlRootAttribute
@@ -81,18 +66,85 @@ namespace nigo.Services
             using TextReader sr = new StringReader(xmlContent);
             try
             {
-                return (PublicationMarketDocument)serializer.Deserialize(sr);
+
+                PublicationMarketDocument document = (PublicationMarketDocument)serializer.Deserialize(sr);
+                PublicationMarketDocument newDocument = null;
+
+                document.Country = Constants.countryDomains.FirstOrDefault(x =>
+                    x.Value is string ? x.Value == domain :
+                    x.Value is string[] && ((string[])x.Value).Contains(domain)
+                ).Key;
+
+                // We need to include +1 quick fix
+                // because of the 27/oct when europe
+                // go one hour back - winter time clock
+                document.TimeSeries = document.TimeSeries
+                    .Where(ts =>
+                        (ts.Period.Resolution == MIN_15_FREQ || ts.Period.Resolution == HOURLY_FREQ) &&
+                        ts.Period.Point.Count <= 25)
+                    .ToList();
+
+                foreach (TimeSeries ts in document.TimeSeries)
+                {
+                    double? lastValue = null;
+
+                    var resolution = ts.Period.Resolution;
+                    List<Point> points = ts.Period.Point;
+                    var processedPoints = new List<Point>();
+
+                    TimeInterval timeInterval = ts.Period.xmlTimeIterval.ToTimeInterval();
+                    //var expectedPoints = resolution == HOURLY_FREQ ? 24 : 94; 
+                    int factor = resolution == HOURLY_FREQ ? 1 : 4;
+                    for (int i = 1; i <= 24; i++)
+                    {
+                        int index = resolution == HOURLY_FREQ ? i : factor * i - 3;
+                        var currentPoint = points.FirstOrDefault(p => p.Position == index);
+                        if (currentPoint != null)
+                        {
+                            lastValue = currentPoint.Price;
+                            currentPoint.Date = timeInterval.from.AddHours(
+                                index - 1
+                            );
+                            processedPoints.Add(currentPoint);
+                        }
+                        else if (lastValue.HasValue)
+                        {
+                            currentPoint = new Point
+                            {
+                                Position = index,
+                                Price = lastValue.Value,
+                                Date = timeInterval.from.AddHours(i - 1)
+                            };
+                            processedPoints.Add(currentPoint);
+                        }
+                    }
+                    ts.Period.Point = processedPoints;
+                    /*
+                    foreach (Point p in points)
+                    {
+                        var position = p.Position;
+                        if (isAPIbug)
+                        {
+                            position = (p.Position + 4 - 1) / 4;
+                        }
+                        p.Date = timeInterval.from.AddHours(
+                            position - 1
+                            );
+                    }*/
+
+                }
+               
+                return document;
             }
             catch (Exception e)
             {
-                // Log the exception details here
+                Console.WriteLine($"Error during deserialization of the document for the region {domain}");
                 return null;
             }
         }
 
         private string ExtractNamespaceVersion(string xmlContent)
         {
-            // Use regex to extract the version number from the namespace
             var regex = new Regex(@"publicationdocument:(\d+:\d+)""");
             var match = regex.Match(xmlContent);
 
@@ -101,7 +153,6 @@ namespace nigo.Services
                 return match.Groups[1].Value;
             }
 
-            // Return default version if no match found
             return "7:0";
         }
 
@@ -109,30 +160,12 @@ namespace nigo.Services
             List<PublicationMarketDocument> documents
         ){
             List<DayAhead> electricityForEurope = new List<DayAhead>();
-            TimeInterval timeInterval;
             foreach (PublicationMarketDocument record in documents)
             {
                 foreach(TimeSeries ts in record.TimeSeries)
                 {
-                    var measurementIntervalMinutes = ts.Period.Resolution;
-                    if (measurementIntervalMinutes != HOURLY_FREQ) {
-                        continue;
-                    }
                     List<Point> points = ts.Period.Point;
                     var country = record.Country;
-                    
-                    timeInterval = TimeInterval.FromUTCString(
-                        ts.Period.xmlTimeIterval.Start,
-                        ts.Period.xmlTimeIterval.End
-                    );
-
-                    foreach(Point p in points)
-                    {
-                        p.Date = timeInterval.from.AddHours(
-                            p.Position - 1
-                            );
-                    }
-
                     electricityForEurope.Add(
                         new DayAhead(
                             country,

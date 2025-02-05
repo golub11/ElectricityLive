@@ -13,6 +13,10 @@ namespace nigo.Models.Xml
         [XmlElement(ElementName = "end")]
         public string End{ get; set; }
         
+        public TimeInterval ToTimeInterval()
+        {
+            return TimeInterval.FromUTCString(Start, End);
+        }
 	}
 }
 
