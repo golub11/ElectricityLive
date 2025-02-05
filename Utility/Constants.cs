@@ -17,11 +17,11 @@
         // it may happen that some countries do not have entries
         internal static Dictionary<string, dynamic> countryDomains = new Dictionary<string, dynamic>
         {
-            {"Germany", "10Y1001A1001A82H"},
             {"Serbia", "10YCS-SERBIATSOV"},
             {"Italy", new string[] {"10Y1001A1001A73I","10Y1001A1001A70O","10Y1001A1001A71M","10Y1001A1001A788","10Y1001C--00096J","10Y1001A1001A74G","10Y1001A1001A885","10Y1001A1001A893" }},
             {"Denmark", new string[] {"10YDK-1--------W","10YDK-2--------M"}},
             {"Estonia", "10Y1001A1001A39I"},
+            {"Germany", "10Y1001A1001A82H"},
             {"Ireland", "10Y1001A1001A59C"},
             {"Switzerland", "10YCH-SWISSGRIDZ"},
             {"Belgium", "10YBE----------2"},
