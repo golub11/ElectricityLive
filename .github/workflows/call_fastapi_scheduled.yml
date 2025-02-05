@@ -1,0 +1,15 @@
+name: Call FastAPI Endpoint Every 6 Hours
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # Runs every 6 hours
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  call-fastapi:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call FastAPI Endpoint
+        run: |
+          curl -X GET "https://goluxai-fastapi-production.up.railway.app/insertNextDay" \
+                -H 'accept: application/json'
