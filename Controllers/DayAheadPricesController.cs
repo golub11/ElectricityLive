@@ -163,20 +163,27 @@ namespace nigo.Controllers
                 var document = await FetchDocumentWithRetry(domain, currentInterval, cancellationToken);
                 if (document == null)
                     break;
+                    else { Console.WriteLine("obradio dokument"); }
+
 
                     if (document.TimeSeries != null && document.TimeSeries.Any())
                     {
                         domainDocument.TimeSeries.AddRange(document.TimeSeries);
+                        Console.WriteLine("doda range");
                     }
 
                     DateTime maxDate = document.GetMaxDate();
                     if (maxDate > originalInterval.to)
+                    {
                         maxDate = originalInterval.to;
-
+                        Console.WriteLine("zamenio max");
+                    }
                     if (maxDate >= currentInterval.to)
                         break;
 
                     currentInterval = new TimeInterval(maxDate.AddHours(1), originalInterval.to);
+                    Console.WriteLine("Zamenio intervale");
+
                 }
 
                 if (domainDocument.TimeSeries.Any())
@@ -214,6 +221,7 @@ namespace nigo.Controllers
                 var document = await FetchDocument(domain, currentInterval, cancellationToken);
                 if (document == null)
                     break;
+                else { Console.WriteLine("obradio dokument"); }
 
                 if (document.TimeSeries != null && document.TimeSeries.Any())
                 {
@@ -228,6 +236,7 @@ namespace nigo.Controllers
                     break;
 
                 currentInterval = new TimeInterval(maxDate.AddHours(1), originalInterval.to);
+                Console.WriteLine("Zamenio intervale");
             }
 
             if (domainDocument.TimeSeries.Any())
