@@ -44,104 +44,100 @@ namespace nigo.Services
                 x.Value is string[] && ((string[])x.Value).Contains(domain)
             ).Key;
         }
-        public PublicationMarketDocument DeserializeDocument(string xmlContent, string domain)
-        {
-            string namespaceVersion = ExtractNamespaceVersion(xmlContent);
-
-            var overrides = new XmlAttributeOverrides();
-            var attrs = new XmlAttributes();
-            attrs.XmlRoot = new XmlRootAttribute
+        
+            public async Task<PublicationMarketDocument> DeserializeDocument(string xmlContent, string domain, CancellationToken cancellationToken = default)
             {
-                ElementName = "Publication_MarketDocument",
-                Namespace = $"{PublicationMarketDocument.BaseNamespace}{namespaceVersion}"
-            };
+                return await Task.Run(() =>
+                {
+                    try
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        
+                        string namespaceVersion = ExtractNamespaceVersion(xmlContent);
+                        var overrides = new XmlAttributeOverrides();
+                        var attrs = new XmlAttributes();
+                        attrs.XmlRoot = new XmlRootAttribute
+                        {
+                            ElementName = "Publication_MarketDocument",
+                            Namespace = $"{PublicationMarketDocument.BaseNamespace}{namespaceVersion}"
+                        };
 
-            overrides.Add(typeof(PublicationMarketDocument), attrs);
+                        overrides.Add(typeof(PublicationMarketDocument), attrs);
+                        var serializer = new XmlSerializer(typeof(PublicationMarketDocument), overrides);
+                        
+                        using TextReader sr = new StringReader(xmlContent);
+                        var document = (PublicationMarketDocument)serializer.Deserialize(sr);
+                        
+                        if (document == null)
+                        {
+                            throw new InvalidOperationException($"Failed to deserialize document for domain {domain}");
+                        }
 
-            // Create serializer with the overridden namespace
-            var serializer = new XmlSerializer(typeof(PublicationMarketDocument), overrides);
-            serializer.UnknownNode += new XmlNodeEventHandler(XmlHelper.serializerUnknownNode!);
-            serializer.UnknownAttribute += new XmlAttributeEventHandler(XmlHelper.serializerUnknownAttribute!);
+                        document.Country = GetCountryFromDomain(domain);
+                        ProcessTimeSeries(document);
+                        
+                        return document;
+                    }
+                    catch (Exception e)
+                    {
+                        throw new DayAheadException($"Error deserializing document for {domain}", e);
+                    }
+                }, cancellationToken);
+            }
 
-            using TextReader sr = new StringReader(xmlContent);
-            try
+            private void ProcessTimeSeries(PublicationMarketDocument document)
             {
-
-                PublicationMarketDocument document = (PublicationMarketDocument)serializer.Deserialize(sr);
-                PublicationMarketDocument newDocument = null;
-
-                document.Country = Constants.countryDomains.FirstOrDefault(x =>
-                    x.Value is string ? x.Value == domain :
-                    x.Value is string[] && ((string[])x.Value).Contains(domain)
-                ).Key;
-
-                // We need to include +1 quick fix
-                // because of the 27/oct when europe
-                // go one hour back - winter time clock
                 document.TimeSeries = document.TimeSeries
-                    .Where(ts =>
-                        (ts.Period.Resolution == MIN_15_FREQ || ts.Period.Resolution == HOURLY_FREQ) &&
-                        ts.Period.Point.Count <= 25)
+                    .Where(ts => (ts.Period.Resolution == MIN_15_FREQ || 
+                                ts.Period.Resolution == HOURLY_FREQ) && 
+                                ts.Period.Point.Count <= 25)
                     .ToList();
 
-                foreach (TimeSeries ts in document.TimeSeries)
+                foreach (var ts in document.TimeSeries)
                 {
-                    double? lastValue = null;
-
-                    var resolution = ts.Period.Resolution;
-                    List<Point> points = ts.Period.Point;
-                    var processedPoints = new List<Point>();
-
-                    TimeInterval timeInterval = ts.Period.xmlTimeIterval.ToTimeInterval();
-                    //var expectedPoints = resolution == HOURLY_FREQ ? 24 : 94; 
-                    int factor = resolution == HOURLY_FREQ ? 1 : 4;
-                    for (int i = 1; i <= 24; i++)
-                    {
-                        int index = resolution == HOURLY_FREQ ? i : factor * i - 3;
-                        var currentPoint = points.FirstOrDefault(p => p.Position == index);
-                        if (currentPoint != null)
-                        {
-                            lastValue = currentPoint.Price;
-                            currentPoint.Date = timeInterval.from.AddHours(
-                                index - 1
-                            );
-                            processedPoints.Add(currentPoint);
-                        }
-                        else if (lastValue.HasValue)
-                        {
-                            currentPoint = new Point
-                            {
-                                Position = index,
-                                Price = lastValue.Value,
-                                Date = timeInterval.from.AddHours(i - 1)
-                            };
-                            processedPoints.Add(currentPoint);
-                        }
-                    }
-                    ts.Period.Point = processedPoints;
-                    /*
-                    foreach (Point p in points)
-                    {
-                        var position = p.Position;
-                        if (isAPIbug)
-                        {
-                            position = (p.Position + 4 - 1) / 4;
-                        }
-                        p.Date = timeInterval.from.AddHours(
-                            position - 1
-                            );
-                    }*/
-
+                    ProcessTimeSeriesPoints(ts);
                 }
-               
-                return document;
             }
-            catch (Exception e)
+
+            private void ProcessTimeSeriesPoints(TimeSeries ts)
             {
-                Console.WriteLine($"Error during deserialization of the document for the region {domain}");
-                return null;
+                double? lastValue = null;
+                var resolution = ts.Period.Resolution;
+                var points = ts.Period.Point;
+                var processedPoints = new List<Point>();
+                var timeInterval = ts.Period.xmlTimeIterval.ToTimeInterval();
+                
+                int factor = resolution == HOURLY_FREQ ? 1 : 4;
+                
+                for (int i = 1; i <= 24; i++)
+                {
+                    int index = resolution == HOURLY_FREQ ? i : factor * i - 3;
+                    ProcessPoint(points, processedPoints, timeInterval, index, ref lastValue);
+                }
+                
+                ts.Period.Point = processedPoints;
             }
-        }
+
+            private void ProcessPoint(List<Point> points, List<Point> processedPoints, 
+                TimeInterval timeInterval, int index, ref double? lastValue)
+            {
+                var currentPoint = points.FirstOrDefault(p => p.Position == index);
+                if (currentPoint != null)
+                {
+                    lastValue = currentPoint.Price;
+                    currentPoint.Date = timeInterval.from.AddHours(index - 1);
+                    processedPoints.Add(currentPoint);
+                }
+                else if (lastValue.HasValue)
+                {
+                    processedPoints.Add(new Point
+                    {
+                        Position = index,
+                        Price = lastValue.Value,
+                        Date = timeInterval.from.AddHours(index - 1)
+                    });
+                }
+            }
 
         private string ExtractNamespaceVersion(string xmlContent)
         {

@@ -271,7 +271,7 @@ namespace nigo.Controllers
                 }
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
-            return _dayAheadService.DeserializeDocument(content, domain);
+            return await _dayAheadService.DeserializeDocument(content, domain, cancellationToken);
         }
         catch (Exception ex)
         {
