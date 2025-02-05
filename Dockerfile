@@ -12,7 +12,7 @@ RUN dotnet restore goluxai.csproj
 RUN dotnet publish goluxai.csproj -c Release -o /out
 
 # Use lightweight .NET runtime for deployment
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+FROM mcr.microsoft.com/dotnet/aspnet:7.0
 WORKDIR /app
 COPY --from=build /out .
 
