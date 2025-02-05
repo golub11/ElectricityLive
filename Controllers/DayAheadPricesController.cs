@@ -265,6 +265,10 @@ namespace nigo.Controllers
                 Console.WriteLine(response.ReasonPhrase);
                 Console.WriteLine(response.Content);
             }
+                else
+                {
+                    Console.WriteLine("Ma dobro je eee");
+                }
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
             return _dayAheadService.DeserializeDocument(content, domain);
