@@ -263,7 +263,7 @@ namespace nigo.Controllers
                 Console.WriteLine($"Error fetching document for {domain}");
                 Console.WriteLine(response.StatusCode);
                 Console.WriteLine(response.ReasonPhrase);
-                Console.WriteLine(response.body);
+                Console.WriteLine(response.Content);
             }
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
