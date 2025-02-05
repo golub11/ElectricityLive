@@ -80,7 +80,7 @@ namespace nigo.Services
                     }
                     catch (Exception e)
                     {
-                        throw new Exception($"Error deserializing document for {domain}", e);
+                        return null;
                     }
                 }, cancellationToken);
             }
