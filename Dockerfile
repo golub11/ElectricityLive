@@ -1,21 +1,20 @@
-# Use official .NET SDK to build the app
+# Use the official .NET 7.0 SDK image to build the application
 FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build
 WORKDIR /app
 
-# Copy everything (to handle multi-project solutions)
-COPY . ./
-
-# Explicitly restore using the correct project or solution file
+# Copy the project file and restore dependencies
+COPY goluxai.csproj ./
 RUN dotnet restore goluxai.csproj
 
-# Build the project
-RUN dotnet publish goluxai.csproj -c Release -o /out
+# Copy the remaining source code and build the application
+COPY . ./
+RUN dotnet publish goluxai.csproj -c Release -o out
 
-# Use lightweight .NET runtime for deployment
-FROM mcr.microsoft.com/dotnet/aspnet:7.0
+# Use the official ASP.NET Core runtime image to run the application
+FROM mcr.microsoft.com/dotnet/aspnet:7.0 AS runtime
 WORKDIR /app
-COPY --from=build /out .
+COPY --from=build /app/out .
+ENV TZ=Europe/Berlin
 
-# Expose port 8080 for Railway
-EXPOSE 8080
-CMD ["dotnet", "goluxai.dll"]
+# Set the entry point for the container
+ENTRYPOINT ["dotnet", "goluxai.dll"]
