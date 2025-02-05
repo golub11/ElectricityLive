@@ -2,13 +2,14 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /app
 
-# Copy project file and restore dependencies
-COPY goluxai.csproj ./
-RUN dotnet restore
-
-# Copy all source files and build the application
+# Copy everything (to handle multi-project solutions)
 COPY . ./
-RUN dotnet publish -c Release -o /out
+
+# Explicitly restore using the correct project or solution file
+RUN dotnet restore goluxai.csproj
+
+# Build the project
+RUN dotnet publish goluxai.csproj -c Release -o /out
 
 # Use lightweight .NET runtime for deployment
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
