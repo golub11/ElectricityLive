@@ -180,7 +180,7 @@ namespace nigo.Controllers
                     }
                     if (maxDate >= currentInterval.to)
                         break;
-
+                    Console.WriteLine("pre menjanja intervala");
                     currentInterval = new TimeInterval(maxDate.AddHours(1), originalInterval.to);
                     Console.WriteLine("Zamenio intervale");
 
