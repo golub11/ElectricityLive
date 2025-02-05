@@ -259,6 +259,12 @@ namespace nigo.Controllers
         {
             var url = _dayAheadService.BuildAPIUrl(domain, domain, timeInterval, _authToken);
             var response = await _httpClient.GetAsync(url, cancellationToken);
+            if (!response.IsSuccessStatusCode){
+                Console.WriteLine($"Error fetching document for {domain}");
+                Console.WriteLine(response.StatusCode);
+                Console.WriteLine(response.ReasonPhrase);
+                Console.WriteLine(response.body);
+            }
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
             return _dayAheadService.DeserializeDocument(content, domain);
