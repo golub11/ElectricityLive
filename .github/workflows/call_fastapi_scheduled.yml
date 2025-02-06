@@ -1,8 +1,8 @@
-name: Call FastAPI Endpoint Every 6 Hours
+name: Call FastAPI Endpoint Every 8 Hours
 
 on:
   schedule:
-    - cron: '0 */6 * * *' # Runs every 6 hours
+    - cron: '0 */8 * * *' # Runs every 8 hours
   workflow_dispatch: # Allows manual triggering
 
 jobs:
