@@ -169,7 +169,6 @@ namespace nigo.Controllers
                     if (document.TimeSeries != null && document.TimeSeries.Any())
                     {
                         domainDocument.TimeSeries.AddRange(document.TimeSeries);
-                        Console.WriteLine("doda range");
                     }
 
                     DateTime maxDate = document.GetMaxDate();
@@ -270,9 +269,7 @@ namespace nigo.Controllers
             var response = await _httpClient.GetAsync(url, cancellationToken);
             if (!response.IsSuccessStatusCode){
                 Console.WriteLine($"Error fetching document for {domain}");
-                Console.WriteLine(response.StatusCode);
-                Console.WriteLine(response.ReasonPhrase);
-                Console.WriteLine(response.Content);
+
             }
                 else
                 {
@@ -280,8 +277,6 @@ namespace nigo.Controllers
                 }
             response.EnsureSuccessStatusCode();
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
-                Console.WriteLine(content);
-
                 return await _dayAheadService.DeserializeDocument(content, domain, cancellationToken);
         }
         catch (Exception ex)
